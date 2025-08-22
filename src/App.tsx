@@ -11,8 +11,11 @@ import {
   Plus,
   Calendar,
   Clock,
-  CheckCircle
+  CheckCircle,
+  LogOut,
+  User
 } from 'lucide-react';
+import { useAuth } from './state/auth';
 import Dashboard from './components/Dashboard';
 import TripPlanner from './components/TripPlanner';
 import BudgetTracker from './components/BudgetTracker';
@@ -36,29 +39,71 @@ interface Trip {
 }
 
 function App() {
+  const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
-  const [trips, setTrips] = useState<Trip[]>([
-    {
-      id: '1',
-      destination: 'Barcelona, Spain',
-      startDate: '2024-06-15',
-      endDate: '2024-06-22',
-      status: 'planning',
-      budget: 2500,
-      spent: 800,
-      participants: ['You', 'Sarah', 'Mike']
-    },
-    {
-      id: '2',
-      destination: 'Tokyo, Japan',
-      startDate: '2024-08-10',
-      endDate: '2024-08-20',
-      status: 'planning',
-      budget: 4000,
-      spent: 1200,
-      participants: ['You', 'Alex']
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // Load user's trips from localStorage on component mount
+  useEffect(() => {
+    if (user) {
+      const storedTrips = localStorage.getItem(`travelPro_trips_${user.id}`);
+      if (storedTrips) {
+        try {
+          setTrips(JSON.parse(storedTrips));
+        } catch {
+          // If parsing fails, start with sample data
+          const sampleTrips = [
+            {
+              id: '1',
+              destination: 'Barcelona, Spain',
+              startDate: '2024-06-15',
+              endDate: '2024-06-22',
+              status: 'planning' as const,
+              budget: 2500,
+              spent: 800,
+              participants: ['You', 'Sarah', 'Mike']
+            },
+            {
+              id: '2',
+              destination: 'Tokyo, Japan',
+              startDate: '2024-08-10',
+              endDate: '2024-08-20',
+              status: 'planning' as const,
+              budget: 4000,
+              spent: 1200,
+              participants: ['You', 'Alex']
+            }
+          ];
+          setTrips(sampleTrips);
+          localStorage.setItem(`travelPro_trips_${user.id}`, JSON.stringify(sampleTrips));
+        }
+      } else {
+        // First time user - set up sample data
+        const sampleTrips = [
+          {
+            id: '1',
+            destination: 'Barcelona, Spain',
+            startDate: '2024-06-15',
+            endDate: '2024-06-22',
+            status: 'planning' as const,
+            budget: 2500,
+            spent: 800,
+            participants: ['You', 'Sarah', 'Mike']
+          }
+        ];
+        setTrips(sampleTrips);
+        localStorage.setItem(`travelPro_trips_${user.id}`, JSON.stringify(sampleTrips));
+      }
     }
-  ]);
+  }, [user]);
+
+  // Save trips to localStorage whenever trips change
+  useEffect(() => {
+    if (user && trips.length > 0) {
+      localStorage.setItem(`travelPro_trips_${user.id}`, JSON.stringify(trips));
+    }
+  }, [trips, user]);
 
   const tabs = [
     { id: 'dashboard' as Tab, label: 'Dashboard', icon: Home },
@@ -109,7 +154,58 @@ function App() {
                 <p className="text-sm text-gray-500">Your Holiday Companion</p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-4 relative">
+              {/* Welcome Message */}
+              <div className="hidden md:block text-right">
+                <p className="text-sm text-gray-600">Welcome back,</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {user?.firstName || user?.email?.split('@')[0] || 'Traveler'}
+                </p>
+              </div>
+              
+              {/* User Menu */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center">
+                    <User className="w-4 h-4 text-white" />
+                  </div>
+                </button>
+                
+                {showUserMenu && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                    <div className="px-4 py-2 border-b border-gray-100">
+                      <p className="text-sm font-medium text-gray-900">
+                        {user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user?.email}
+                      </p>
+                      <p className="text-xs text-gray-500">{user?.email}</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setActiveTab('settings');
+                        setShowUserMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                    >
+                      <Settings className="w-4 h-4" />
+                      <span>Account Settings</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        logout();
+                        setShowUserMenu(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+              
               <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
                 <Clock className="w-5 h-5" />
               </button>
@@ -121,6 +217,14 @@ function App() {
           </div>
         </div>
       </header>
+
+      {/* Click outside to close user menu */}
+      {showUserMenu && (
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => setShowUserMenu(false)}
+        />
+      )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col lg:flex-row gap-6">

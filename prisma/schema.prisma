@@ -1,0 +1,71 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id         String    @id @default(cuid())
+  email      String    @unique
+  password   String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  watchlists Watchlist[]
+  backtests  Backtest[]
+  trades     Trade[]
+  settings   Settings?
+}
+
+model Watchlist {
+  id        String         @id @default(cuid())
+  name      String
+  items     WatchlistItem[]
+  user      User           @relation(fields: [userId], references: [id])
+  userId    String
+  createdAt DateTime       @default(now())
+}
+
+model WatchlistItem {
+  id          String    @id @default(cuid())
+  symbol      String
+  watchlist   Watchlist @relation(fields: [watchlistId], references: [id])
+  watchlistId String
+}
+
+model Backtest {
+  id          String   @id @default(cuid())
+  title       String
+  symbol      String
+  timeframe   String
+  paramsJson  String
+  from        DateTime
+  to          DateTime
+  resultsJson String
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  createdAt   DateTime @default(now())
+}
+
+model Trade {
+  id        String   @id @default(cuid())
+  symbol    String
+  side      String
+  qty       Float
+  price     Float
+  ts        DateTime @default(now())
+  metaJson  String
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+}
+
+model Settings {
+  id              String  @id @default(cuid())
+  defaultExchange String?
+  apiKey          String?
+  apiSecret       String?
+  user            User    @relation(fields: [userId], references: [id])
+  userId          String  @unique
+}
